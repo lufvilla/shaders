@@ -39,11 +39,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _HighTexture:
-        m_Texture: {fileID: 2800000, guid: 06ed1e05917debf4faf60ea9271069e0, type: 3}
+        m_Texture: {fileID: 2800000, guid: f00a71de0a247465a94a50909e0a2a67, type: 3}
         m_Scale: {x: 10, y: 10}
         m_Offset: {x: 0, y: 0}
     - _LowTexture:
-        m_Texture: {fileID: 2800000, guid: b1e59cf846aae7a4e98599512c9638f7, type: 3}
+        m_Texture: {fileID: 2800000, guid: cb8a877664ce244a6bd6e28f5fa2b063, type: 3}
         m_Scale: {x: 10, y: 10}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -51,7 +51,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MediumTexture:
-        m_Texture: {fileID: 2800000, guid: 4752afd0bc56f4345b52fc8b6df4e58e, type: 3}
+        m_Texture: {fileID: 2800000, guid: 6fe27f20ddeda7446bb35882dd10de66, type: 3}
         m_Scale: {x: 10, y: 10}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
@@ -93,9 +93,9 @@ Material:
     - _GlossyReflections: 1
     - _Metallic: 0.652
     - _Mode: 0
-    - _Normal: 1
+    - _Normal: 1.43
     - _OcclusionStrength: 1
-    - _Offset: 2.2
+    - _Offset: 2.34
     - _Parallax: 0.02
     - _Smoothness: 0.19
     - _SmoothnessTextureChannel: 0
@@ -104,7 +104,7 @@ Material:
     - _TessMax: 25
     - _TessMin: 10
     - _TessValue: 4
-    - _Tesselation: 1
+    - _Tesselation: 3
     - _UVSec: 0
     - _ZWrite: 1
     - __dirty: 0
