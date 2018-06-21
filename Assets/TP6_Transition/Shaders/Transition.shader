@@ -48,11 +48,13 @@
 
 			fixed4 frag (v2f i) : SV_Target
 			{
+			    fixed4 mask = tex2D(_Mask, i.uv);
 			    fixed4 col1 = tex2D(_MainTex, i.uv);
 				fixed4 col2 = tex2D(_World2, i.uv);
-				//fixed mask = (tex2D(_Mask, i.uv).r + 0.5f) * _Transition;
-				//mask = clamp(mask, 0, 1);
-				return lerp(col1, col2, _Transition);
+				
+				return (mask.r <= _Transition) ? col2 : col1;
+				
+				//return lerp(col1, col2, _Transition);
 			}
 			ENDCG
 		}
