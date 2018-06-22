@@ -18,7 +18,7 @@ public class CameraTransition : MonoBehaviour
 
 	private void OnRenderImage(RenderTexture src, RenderTexture dest)
 	{
-		SecondCamera.gameObject.SetActive(CurrentTransition <= 0);
+		SecondCamera.gameObject.SetActive(CurrentTransition > 0);
 
 		Material.SetFloat("_Transition", CurrentTransition);
 		Graphics.Blit(src, dest, Material);

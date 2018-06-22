@@ -6,8 +6,9 @@ Shader "Game/Predator"
 	{
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Refraction)]
+		_MaskClipValue( "Mask Clip Value", Float ) = 0.5
 		_ChromaticAberration("Chromatic Aberration", Range( 0 , 0.3)) = 0.1
-		_Float1("Float 1", Range( 0 , 1)) = 0
+		_Reflection("Reflection", Range( 0 , 1)) = 0
 		_Albedo("Albedo", 2D) = "white" {}
 		_Normal("Normal", Range( 0 , 1)) = 0
 		_Opacity("Opacity", Range( 0 , 1)) = 0
@@ -16,7 +17,7 @@ Shader "Game/Predator"
 
 	SubShader
 	{
-		Tags{ "RenderType" = "Transparent"  "Queue" = "Transparent+0" "IgnoreProjector" = "True" }
+		Tags{ "RenderType" = "Transparent"  "Queue" = "Geometry+0" }
 		Cull Back
 		Stencil
 		{
@@ -49,10 +50,11 @@ Shader "Game/Predator"
 		uniform float _Normal;
 		uniform sampler2D _Albedo;
 		uniform float4 _Albedo_ST;
-		uniform float _Float1;
 		uniform float _Opacity;
 		uniform sampler2D RefractionGrab0;
 		uniform float _ChromaticAberration;
+		uniform float _Reflection;
+		uniform float _MaskClipValue = 0.5;
 
 		inline float4 Refraction( Input i, SurfaceOutputStandard o, float indexOfRefraction, float chomaticAberration ) {
 			float3 worldNormal = o.Normal;
@@ -82,7 +84,8 @@ Shader "Game/Predator"
 			#ifdef UNITY_PASS_FORWARDBASE
 			float3 ase_worldNormal = WorldNormalVector( i, float3( 0, 0, 1 ) );
 			float3 vertexNormal = mul( unity_WorldToObject, float4( ase_worldNormal, 0 ) );
-				color.rgb = color.rgb + Refraction( i, o, vertexNormal, _ChromaticAberration ) * ( 1 - color.a );
+			float3 temp_cast_1 = (( 1.0 - _Reflection )).xxx;
+				color.rgb = color.rgb + Refraction( i, o, ( vertexNormal + temp_cast_1 ), _ChromaticAberration ) * ( 1 - color.a );
 				color.a = 1;
 			#endif
 		}
@@ -91,7 +94,7 @@ Shader "Game/Predator"
 		{
 			float2 uv_Albedo = i.uv_texcoord * _Albedo_ST.xy + _Albedo_ST.zw;
 			o.Normal = UnpackScaleNormal( tex2D( _Albedo, uv_Albedo ) ,_Normal );
-			o.Albedo = ( ( tex2D( _Albedo, uv_Albedo ) * _Float1 ) + float4( 0,0,0,0 ) ).xyz;
+			o.Albedo = tex2D( _Albedo, uv_Albedo ).xyz;
 			o.Alpha = _Opacity;
 			o.Normal = o.Normal + 0.00001 * i.screenPos * i.worldPos;
 		}
@@ -99,7 +102,7 @@ Shader "Game/Predator"
 		ENDCG
 		CGPROGRAM
 		#pragma multi_compile _ALPHAPREMULTIPLY_ON
-		#pragma surface surf Standard alpha:fade keepalpha finalcolor:RefractionF fullforwardshadows exclude_path:deferred 
+		#pragma surface surf Standard keepalpha finalcolor:RefractionF fullforwardshadows exclude_path:deferred 
 
 		ENDCG
 		Pass
@@ -186,23 +189,23 @@ Shader "Game/Predator"
 }
 /*ASEBEGIN
 Version=10001
-173;210;834;768;1737.623;1023.11;2.197762;True;False
-Node;AmplifyShaderEditor.SamplerNode;15;-816.9821,-690.5345;Float;True;Property;_Albedo;Albedo;2;0;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT4;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.RangedFloatNode;17;-834.5917,-485.3395;Float;False;Property;_Float1;Float 1;3;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.SimpleMultiplyOpNode;16;-476.3339,-535.8433;Float;False;2;0;FLOAT4;0.0;False;1;FLOAT;0.0,0,0,0;False;1;FLOAT4
-Node;AmplifyShaderEditor.RangedFloatNode;29;-953.9644,-197.4942;Float;False;Property;_Normal;Normal;4;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.RangedFloatNode;26;-374.3199,308.8694;Float;False;Property;_Opacity;Opacity;5;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.NormalVertexDataNode;25;-403.0192,146.4939;Float;False;0;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.SamplerNode;27;-644.3126,-235.7163;Float;True;Property;_TextureSample0;Texture Sample 0;4;0;None;True;0;False;white;Auto;True;Instance;15;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.SimpleAddOpNode;18;-299.807,-431.6697;Float;False;2;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0,0,0,0;False;1;FLOAT4
-Node;AmplifyShaderEditor.StandardSurfaceOutputNode;0;-12.25135,-19.12568;Float;False;True;6;Float;ASEMaterialInspector;0;Standard;Game/Predator;False;False;False;False;False;False;False;False;False;False;False;False;Back;0;0;False;0;0;Transparent;0.5;True;True;0;False;Transparent;Transparent;ForwardOnly;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;0;255;255;0;0;0;0;False;0;4;10;25;False;0.5;True;0;Zero;Zero;0;Zero;Zero;Add;Add;0;False;0;0,0,0,0;VertexOffset;False;Cylindrical;Relative;0;;-1;-1;-1;-1;16;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0.0;False;4;FLOAT;0.0;False;5;FLOAT;0.0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0.0;False;9;FLOAT;0.0;False;10;OBJECT;0.0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;13;FLOAT3;0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
-WireConnection;16;0;15;0
-WireConnection;16;1;17;0
+1927;33;1906;1004;1576.756;756.1385;1.3;True;True
+Node;AmplifyShaderEditor.RangedFloatNode;17;-886.3929,203.4605;Float;False;Property;_Reflection;Reflection;3;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.NormalVertexDataNode;25;-631.22,40.09389;Float;False;0;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.RangedFloatNode;29;-1035.864,-231.2939;Float;False;Property;_Normal;Normal;4;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.OneMinusNode;32;-511.2555,208.7616;Float;False;1;0;FLOAT;0.0;False;1;FLOAT
+Node;AmplifyShaderEditor.RangedFloatNode;26;-658.5209,308.8693;Float;False;Property;_Opacity;Opacity;5;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.SimpleAddOpNode;31;-274.2561,106.4615;Float;False;2;0;FLOAT3;0.0;False;1;FLOAT;0,0,0;False;1;FLOAT3
+Node;AmplifyShaderEditor.SamplerNode;15;-679.1827,-452.6345;Float;True;Property;_Albedo;Albedo;2;0;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT4;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.SamplerNode;27;-688.5123,-205.816;Float;True;Property;_TextureSample0;Texture Sample 0;4;0;None;True;0;False;white;Auto;True;Instance;15;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.StandardSurfaceOutputNode;0;-12.25135,-19.12568;Float;False;True;6;Float;ASEMaterialInspector;0;Standard;Game/Predator;False;False;False;False;False;False;False;False;False;False;False;False;Back;0;0;False;0;0;Custom;0.5;True;True;0;False;Transparent;Geometry;ForwardOnly;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;0;255;255;0;0;0;0;False;0;4;10;25;False;0.5;True;0;Zero;Zero;0;Zero;Zero;Add;Add;0;False;0;0,0,0,0;VertexOffset;False;Cylindrical;Relative;0;;-1;-1;-1;-1;16;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0.0;False;4;FLOAT;0.0;False;5;FLOAT;0.0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0.0;False;9;FLOAT;0.0;False;10;OBJECT;0.0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;13;FLOAT3;0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
+WireConnection;32;0;17;0
+WireConnection;31;0;25;0
+WireConnection;31;1;32;0
 WireConnection;27;5;29;0
-WireConnection;18;0;16;0
-WireConnection;0;0;18;0
+WireConnection;0;0;15;0
 WireConnection;0;1;27;0
-WireConnection;0;8;25;0
+WireConnection;0;8;31;0
 WireConnection;0;9;26;0
 ASEEND*/
-//CHKSM=E57DC8546AA8786A79D8942F62948E15D63C8AD6
+//CHKSM=E022CD84F1EEF05A8FF546C68C002433B37DB4A5
