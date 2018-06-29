@@ -100,17 +100,19 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _Float0: 2
+    - _Float1: 1.7062358
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _HighLerp: 1
-    - _LowLerp: 1
-    - _MediumLerp: 1
+    - _HighLerp: 0
+    - _LowLerp: 0
+    - _MediumLerp: 0
     - _Metallic: 0.4
     - _Mode: 0
+    - _NoiseMultiplier: 1.521645
     - _Normal: 0.7
     - _OcclusionStrength: 1
-    - _Offset: 5
+    - _Offset: 4
     - _Parallax: 0.02
     - _Smoothness: 0.227
     - _SmoothnessTextureChannel: 0
@@ -119,7 +121,7 @@ Material:
     - _TessMax: 25
     - _TessMin: 10
     - _TessValue: 4
-    - _Tesselation: 2.8927855
+    - _Tesselation: 3
     - _UVSec: 0
     - _ZWrite: 1
     - __dirty: 0
