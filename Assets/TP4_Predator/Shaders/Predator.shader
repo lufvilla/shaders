@@ -6,18 +6,18 @@ Shader "Game/Predator"
 	{
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Refraction)]
-		_MaskClipValue( "Mask Clip Value", Float ) = 0.5
 		_ChromaticAberration("Chromatic Aberration", Range( 0 , 0.3)) = 0.1
-		_Reflection("Reflection", Range( 0 , 1)) = 0
 		_Albedo("Albedo", 2D) = "white" {}
-		_Normal("Normal", Range( 0 , 1)) = 0
+		_Reflection("Reflection", Range( 0 , 1)) = 0
+		_NoiseForce("NoiseForce", Range( 0 , 1)) = 0
+		_Noise("Noise", 2D) = "white" {}
 		_Opacity("Opacity", Range( 0 , 1)) = 0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 	}
 
 	SubShader
 	{
-		Tags{ "RenderType" = "Transparent"  "Queue" = "Geometry+0" }
+		Tags{ "RenderType" = "Opaque"  "Queue" = "Transparent+0" }
 		Cull Back
 		Stencil
 		{
@@ -30,31 +30,28 @@ Shader "Game/Predator"
 		#include "UnityPBSLighting.cginc"
 		#include "Lighting.cginc"
 		#pragma target 4.6
-		#ifdef UNITY_PASS_SHADOWCASTER
-			#undef INTERNAL_DATA
-			#undef WorldReflectionVector
-			#undef WorldNormalVector
-			#define INTERNAL_DATA half3 internalSurfaceTtoW0; half3 internalSurfaceTtoW1; half3 internalSurfaceTtoW2;
-			#define WorldReflectionVector(data,normal) reflect (data.worldRefl, half3(dot(data.internalSurfaceTtoW0,normal), dot(data.internalSurfaceTtoW1,normal), dot(data.internalSurfaceTtoW2,normal)))
-			#define WorldNormalVector(data,normal) fixed3(dot(data.internalSurfaceTtoW0,normal), dot(data.internalSurfaceTtoW1,normal), dot(data.internalSurfaceTtoW2,normal))
-		#endif
 		struct Input
 		{
+			float2 texcoord_0;
 			float2 uv_texcoord;
 			float4 screenPos;
 			float3 worldPos;
-			float3 worldNormal;
-			INTERNAL_DATA
 		};
 
-		uniform float _Normal;
+		uniform float _NoiseForce;
+		uniform float _Opacity;
+		uniform sampler2D _Noise;
 		uniform sampler2D _Albedo;
 		uniform float4 _Albedo_ST;
-		uniform float _Opacity;
 		uniform sampler2D RefractionGrab0;
 		uniform float _ChromaticAberration;
 		uniform float _Reflection;
-		uniform float _MaskClipValue = 0.5;
+
+		void vertexDataFunc( inout appdata_full v, out Input o )
+		{
+			UNITY_INITIALIZE_OUTPUT( Input, o );
+			o.texcoord_0.xy = v.texcoord.xy * float2( 1,1 ) + float2( 0,0 );
+		}
 
 		inline float4 Refraction( Input i, SurfaceOutputStandard o, float indexOfRefraction, float chomaticAberration ) {
 			float3 worldNormal = o.Normal;
@@ -82,27 +79,25 @@ Shader "Game/Predator"
 		void RefractionF( Input i, SurfaceOutputStandard o, inout fixed4 color )
 		{
 			#ifdef UNITY_PASS_FORWARDBASE
-			float3 ase_worldNormal = WorldNormalVector( i, float3( 0, 0, 1 ) );
-			float3 vertexNormal = mul( unity_WorldToObject, float4( ase_worldNormal, 0 ) );
-			float3 temp_cast_1 = (( 1.0 - _Reflection )).xxx;
-				color.rgb = color.rgb + Refraction( i, o, ( vertexNormal + temp_cast_1 ), _ChromaticAberration ) * ( 1 - color.a );
+				color.rgb = color.rgb + Refraction( i, o, ( 1.0 - _Reflection ), _ChromaticAberration ) * ( 1 - color.a );
 				color.a = 1;
 			#endif
 		}
 
 		void surf( Input i , inout SurfaceOutputStandard o )
 		{
+			o.Normal = UnpackScaleNormal( tex2D( _Noise, (abs( i.texcoord_0+_SinTime.x * float2(1,1 ))) ) ,( _NoiseForce * ( 1.0 - _Opacity ) ) );
 			float2 uv_Albedo = i.uv_texcoord * _Albedo_ST.xy + _Albedo_ST.zw;
-			o.Normal = UnpackScaleNormal( tex2D( _Albedo, uv_Albedo ) ,_Normal );
 			o.Albedo = tex2D( _Albedo, uv_Albedo ).xyz;
-			o.Alpha = _Opacity;
+			float temp_output_26_0 = _Opacity;
+			o.Alpha = temp_output_26_0;
 			o.Normal = o.Normal + 0.00001 * i.screenPos * i.worldPos;
 		}
 
 		ENDCG
 		CGPROGRAM
 		#pragma multi_compile _ALPHAPREMULTIPLY_ON
-		#pragma surface surf Standard keepalpha finalcolor:RefractionF fullforwardshadows exclude_path:deferred 
+		#pragma surface surf Standard keepalpha finalcolor:RefractionF fullforwardshadows exclude_path:deferred vertex:vertexDataFunc 
 
 		ENDCG
 		Pass
@@ -141,6 +136,8 @@ Shader "Game/Predator"
 				UNITY_SETUP_INSTANCE_ID( v );
 				UNITY_INITIALIZE_OUTPUT( v2f, o );
 				UNITY_TRANSFER_INSTANCE_ID( v, o );
+				Input customInputData;
+				vertexDataFunc( v, customInputData );
 				float3 worldPos = mul( unity_ObjectToWorld, v.vertex ).xyz;
 				half3 worldNormal = UnityObjectToWorldNormal( v.normal );
 				fixed3 worldTangent = UnityObjectToWorldDir( v.tangent.xyz );
@@ -164,13 +161,9 @@ Shader "Game/Predator"
 				Input surfIN;
 				UNITY_INITIALIZE_OUTPUT( Input, surfIN );
 				surfIN.uv_texcoord = IN.texcoords01.xy;
-				float3 worldPos = float3( IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w );
+				float3 worldPos = IN.worldPos;
 				fixed3 worldViewDir = normalize( UnityWorldSpaceViewDir( worldPos ) );
 				surfIN.worldPos = worldPos;
-				surfIN.worldNormal = float3( IN.tSpace0.z, IN.tSpace1.z, IN.tSpace2.z );
-				surfIN.internalSurfaceTtoW0 = IN.tSpace0.xyz;
-				surfIN.internalSurfaceTtoW1 = IN.tSpace1.xyz;
-				surfIN.internalSurfaceTtoW2 = IN.tSpace2.xyz;
 				SurfaceOutputStandard o;
 				UNITY_INITIALIZE_OUTPUT( SurfaceOutputStandard, o )
 				surf( surfIN, o );
@@ -189,23 +182,30 @@ Shader "Game/Predator"
 }
 /*ASEBEGIN
 Version=10001
-1927;33;1906;1004;1576.756;756.1385;1.3;True;True
-Node;AmplifyShaderEditor.RangedFloatNode;17;-886.3929,203.4605;Float;False;Property;_Reflection;Reflection;3;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.NormalVertexDataNode;25;-631.22,40.09389;Float;False;0;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.RangedFloatNode;29;-1035.864,-231.2939;Float;False;Property;_Normal;Normal;4;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.OneMinusNode;32;-511.2555,208.7616;Float;False;1;0;FLOAT;0.0;False;1;FLOAT
-Node;AmplifyShaderEditor.RangedFloatNode;26;-658.5209,308.8693;Float;False;Property;_Opacity;Opacity;5;0;0;0;1;0;1;FLOAT
-Node;AmplifyShaderEditor.SimpleAddOpNode;31;-274.2561,106.4615;Float;False;2;0;FLOAT3;0.0;False;1;FLOAT;0,0,0;False;1;FLOAT3
-Node;AmplifyShaderEditor.SamplerNode;15;-679.1827,-452.6345;Float;True;Property;_Albedo;Albedo;2;0;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT4;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.SamplerNode;27;-688.5123,-205.816;Float;True;Property;_TextureSample0;Texture Sample 0;4;0;None;True;0;False;white;Auto;True;Instance;15;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
-Node;AmplifyShaderEditor.StandardSurfaceOutputNode;0;-12.25135,-19.12568;Float;False;True;6;Float;ASEMaterialInspector;0;Standard;Game/Predator;False;False;False;False;False;False;False;False;False;False;False;False;Back;0;0;False;0;0;Custom;0.5;True;True;0;False;Transparent;Geometry;ForwardOnly;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;0;255;255;0;0;0;0;False;0;4;10;25;False;0.5;True;0;Zero;Zero;0;Zero;Zero;Add;Add;0;False;0;0,0,0,0;VertexOffset;False;Cylindrical;Relative;0;;-1;-1;-1;-1;16;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0.0;False;4;FLOAT;0.0;False;5;FLOAT;0.0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0.0;False;9;FLOAT;0.0;False;10;OBJECT;0.0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;13;FLOAT3;0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
+923;92;582;650;1713.337;673.5663;2.2;True;False
+Node;AmplifyShaderEditor.RangedFloatNode;26;-1457.42,176.3693;Float;False;Property;_Opacity;Opacity;5;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.RangedFloatNode;29;-1282.842,-69.56911;Float;False;Property;_NoiseForce;NoiseForce;4;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.OneMinusNode;41;-1144.634,95.93341;Float;False;1;0;FLOAT;0.0;False;1;FLOAT
+Node;AmplifyShaderEditor.TextureCoordinatesNode;35;-1441.935,-548.665;Float;False;0;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.SinTimeNode;38;-1376.54,-338.3647;Float;False;0;5;FLOAT4;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.PannerNode;34;-1074.939,-368.6661;Float;False;1;1;2;0;FLOAT2;0,0;False;1;FLOAT;0.0;False;1;FLOAT2
+Node;AmplifyShaderEditor.RangedFloatNode;17;-759.8821,155.9605;Float;False;Property;_Reflection;Reflection;3;0;0;0;1;0;1;FLOAT
+Node;AmplifyShaderEditor.SimpleMultiplyOpNode;40;-943.3341,-68.46652;Float;False;2;0;FLOAT;0.0;False;1;FLOAT;0.0;False;1;FLOAT
+Node;AmplifyShaderEditor.OneMinusNode;32;-431.2555,161.2616;Float;False;1;0;FLOAT;0.0;False;1;FLOAT
+Node;AmplifyShaderEditor.SamplerNode;33;-724.0351,-125.8517;Float;True;Property;_Noise;Noise;5;0;None;True;0;False;white;Auto;True;Object;-1;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT3;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.SamplerNode;15;-384.6827,-331.7343;Float;True;Property;_Albedo;Albedo;2;0;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;6;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;1.0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1.0;False;5;FLOAT4;FLOAT;FLOAT;FLOAT;FLOAT
+Node;AmplifyShaderEditor.StandardSurfaceOutputNode;0;-12.25135,-19.12568;Float;False;True;6;Float;ASEMaterialInspector;0;Standard;Game/Predator;False;False;False;False;False;False;False;False;False;False;False;False;Back;0;0;False;0;0;Translucent;0.5;True;True;0;True;Opaque;Transparent;ForwardOnly;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;True;0;255;255;0;0;0;0;False;0;4;10;25;False;0.5;True;0;Zero;Zero;0;Zero;Zero;Add;Add;0;False;0;0,0,0,0;VertexOffset;False;Cylindrical;Relative;0;;-1;-1;-1;-1;16;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0.0;False;4;FLOAT;0.0;False;5;FLOAT;0.0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0.0;False;9;FLOAT;0.0;False;10;OBJECT;0.0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;13;FLOAT3;0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
+WireConnection;41;0;26;0
+WireConnection;34;0;35;0
+WireConnection;34;1;38;0
+WireConnection;40;0;29;0
+WireConnection;40;1;41;0
 WireConnection;32;0;17;0
-WireConnection;31;0;25;0
-WireConnection;31;1;32;0
-WireConnection;27;5;29;0
+WireConnection;33;1;34;0
+WireConnection;33;5;40;0
 WireConnection;0;0;15;0
-WireConnection;0;1;27;0
-WireConnection;0;8;31;0
+WireConnection;0;1;33;0
+WireConnection;0;8;32;0
 WireConnection;0;9;26;0
 ASEEND*/
-//CHKSM=E022CD84F1EEF05A8FF546C68C002433B37DB4A5
+//CHKSM=768079C7D79B6AAF3C90552C03632F088409414D
